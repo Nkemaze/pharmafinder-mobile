@@ -1,0 +1,19 @@
+id,name,phone,location,latitude,longitude,verification_status,source
+1,Pharmacie Du Soleil,+237 2 22 22 14 23,Avenue Ahidjo / Centre-ville,3.8670532,11.5169854,Available,Yaoundé business/mapping sources
+2,PHARMACIE FRANCAISE,+237 2 22 22 14 76 / +237 677 62 08 47,Avenue Ahidjo / Centre-ville,3.86365,11.51973,Available,Yaoundé business/mapping sources
+3,Pharmacie Des Nations,+237 2 22 20 93 58,Bata Nlongkak,3.88773,11.52163,Available,Mapping/business sources
+4,Pharmacie De La Moisson,+237 2 22 23 16 19,Poste Centrale,3.86044,11.52117,Available,Mapping/business sources
+5,Pharmacie ATHERA,+237 6 50 62 05 05,Omnisport / Titi Garage,3.88679,11.54749,Available,Mapping/business sources
+6,Pharmacie Messa,+237 6 94 28 73 04,Messa,3.8721652,11.5043378,Available,Mapping/business sources
+7,PHARMACIE DU CARREFOUR EMIA,+237 2 22 23 42 07,Route de Melen / EMIA,3.8626427,11.5017572,Available,Mapping/business sources
+8,PHARMACIE NSIMEYONG,+237 6 61 25 89 92,Nsimeyong,3.83524,11.49441,Phone should be verified,Mapping/business sources
+9,PHARMACIE DES ACACIAS,+237 2 22 31 70 19,Biyem-Assi,3.833368,11.487269,Web-mapped; verify exact entrance,ASCOMA geolocation / business listing
+10,PHARMACIE DU STADE,+237 2 22 20 67 10,Omnisport / Nkomnkana,3.882078,11.53224,Approximate; verify exact branch,Locality and nearby mapping sources
+11,The Petals Pharmacy,+237 2 22 23 15 97,Warda / Avenue Maréchal Foch,3.86927,11.51564,Available,OpenStreetMap/Mapcarta
+12,PHARMACIE DU LYCEE BILINGUE,+237 2 22 22 98 37,Lycée Bilingue / Essos,3.872424,11.53224,Approximate; plus code confirms place,Near-place/Yaoundé directories
+13,Pharmacie Les Manguiers,+237 2 22 21 05 35,Rue Noah Tsogo,3.89851,11.53165,Available,OpenStreetMap/Mapcarta
+14,Pharmacie De La Chapelle,+237 2 22 21 33 21,Chapelle / Ngousso,3.850511,11.493703,Approximate; locality reference,Geoview/Ayila'a
+15,PHARMACIE NSAM EFOULAN,+237 2 42 19 40 81,Nsam / Efoulan,3.842,11.492,Approximate; locality centroid,Directory/locality sources
+16,Pharmacy Principal,+237 2 22 31 49 08,Yaoundé,3.856127,11.49231,Available,ASCOMA geolocation
+17,PHARMACIE OLEZOA,+237 6 96 56 45 72,Olezoa,3.8463,11.51471,Approximate; nearby Olezoa map result,Near-place/mapping source
+18,Pharmacie La Jouvence,+237 2 22 31 72 24,Yaoundé,,,Coordinates not verified,Business directory

@@ -1,0 +1,14 @@
+=== Pharmacies Removed from Firestore ===
+All pharmacies in this list were in Abuja, Nigeria
+(outside Cameroon) and have been deleted.
+
+  demo-pharm-01
+  demo-pharm-02
+  demo-pharm-03
+  demo-pharm-04
+  demo-pharm-05
+  demo-pharm-06
+  demo-pharm-07
+  demo-pharm-08
+
+Total removed: 8
