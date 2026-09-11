@@ -1,9 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-/// A pharmacy as stored under `pharmacies/{pharmacyId}`.
+/// A pharmacy as returned by the PharmaTrack public API
+/// (`GET /api/v1/pharmacies` or `GET /api/v1/pharmacies/<id>`).
 ///
-/// Mirrors the web app's schema: profile fields (name, address, city,
-/// latitude, longitude, phone) plus operating hours. Open/closed status is
+/// The profile mirrors the web app's tenant record: name, address, city,
+/// latitude, longitude, phone, plus operating hours. Open/closed status is
 /// derived from the hours, matching the web app's behaviour.
 class Pharmacy {
   final String id;
@@ -34,23 +33,29 @@ class Pharmacy {
     this.distanceKm = -1,
   });
 
-  /// Builds a pharmacy from a plain map (Firestore document data or the
-  /// on-device cache written by [PharmacyService]).
-  factory Pharmacy.fromMap(
-    String id,
+  /// Builds a pharmacy from the public API's JSON representation
+  /// (snake_case keys, `opening_hours` parsed as an object). Also accepts
+  /// the camelCase shape used by the on-device cache written by
+  /// [PharmacyService], so cached data stays readable across versions.
+  factory Pharmacy.fromJson(
     Map<String, dynamic> data, {
     double distanceKm = -1,
   }) {
     return Pharmacy(
-      id: id,
-      name: data['name']?.toString() ?? id,
+      id: data['id']?.toString() ?? '',
+      name: data['name']?.toString() ?? (data['id']?.toString() ?? ''),
       address: data['address']?.toString() ?? '',
       city: data['city']?.toString() ?? '',
-      phone: (data['emergencyPhone'] ?? data['phone'] ?? '').toString(),
+      phone: (data['emergency_phone'] ??
+              data['emergencyPhone'] ??
+              data['phone'] ??
+              '')
+          .toString(),
       latitude: (data['latitude'] as num?)?.toDouble() ?? 0,
       longitude: (data['longitude'] as num?)?.toDouble() ?? 0,
       status: data['status']?.toString() ?? 'active',
       hours:
+          (data['opening_hours'] as Map<String, dynamic>?) ??
           (data['hours'] as Map<String, dynamic>?) ??
           {
             'weekdayOpen': data['weekdayOpen'],
@@ -61,15 +66,6 @@ class Pharmacy {
       distanceKm: distanceKm,
     );
   }
-
-  factory Pharmacy.fromDocument(
-    DocumentSnapshot doc, {
-    double distanceKm = -1,
-  }) => Pharmacy.fromMap(
-    doc.id,
-    doc.data() as Map<String, dynamic>? ?? {},
-    distanceKm: distanceKm,
-  );
 
   /// True for pharmacies that are active (not suspended/deleted).
   bool get isActive => status == 'active' || status.isEmpty;

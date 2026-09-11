@@ -17,6 +17,18 @@ class PopularDrug {
     required this.anyInStock,
   });
 
+  /// Builds from the public API's aggregated response
+  /// (`GET /api/v1/products/popular`).
+  factory PopularDrug.fromJson(Map<String, dynamic> data) {
+    return PopularDrug(
+      name: data['name']?.toString() ?? '',
+      formLabel: data['form_label']?.toString() ?? '',
+      cheapestPrice: (data['cheapest_price'] as num?)?.toDouble() ?? 0,
+      pharmacyCount: (data['pharmacy_count'] as num?)?.toInt() ?? 0,
+      anyInStock: data['any_in_stock'] == true,
+    );
+  }
+
   /// "500 FCFA" using grouping for thousands (e.g. 2500 -> 2,500 FCFA).
   String get cheapestPriceLabel => '${_group(cheapestPrice.round())} FCFA';
 

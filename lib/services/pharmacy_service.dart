@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config.dart';
 import '../models/drug.dart';
 import '../models/pharmacy.dart';
 import '../models/popular_drug.dart';
@@ -29,42 +30,65 @@ class PharmacySearchResult {
   }
 }
 
+/// Data access layer for the customer app, backed by the hosted PharmaTrack
+/// REST API (`ApiConfig.apiBase`) instead of Firestore.
+///
+/// Caching contract mirrors the old implementation: the pharmacy list is
+/// cached in memory (10-minute TTL) and persisted to disk via
+/// SharedPreferences, so the map and nearby list render instantly and still
+/// work offline. Drug listings and search are always fetched fresh.
 class PharmacyService {
   PharmacyService._();
   static final PharmacyService instance = PharmacyService._();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   static const double earthRadiusKm = 6371;
+  static const Duration _timeout = Duration(seconds: 15);
 
-  CollectionReference get _pharmacies => _db.collection('pharmacies');
-
-  /// In-memory + persisted cache of the raw pharmacy documents. The map and
-  /// nearby list render instantly from it while Firestore refreshes in the
-  /// background, and it is the data source when the device is offline.
-  static const _kPharmaciesCachePref = 'pharmacies_cache_v2';
+  static const _kPharmaciesCachePref = 'pharmacies_cache_v3';
   static const _pharmaciesCacheTtl = Duration(minutes: 10);
-  static const _pharmaciesCacheFields = [
-    'id',
-    'name',
-    'address',
-    'city',
-    'phone',
-    'emergencyPhone',
-    'latitude',
-    'longitude',
-    'status',
-    'hours',
-    'weekdayOpen',
-    'weekdayClose',
-    'weekendOpen',
-    'weekendClose',
-  ];
+
+  /// In-memory + persisted cache of the raw pharmacy maps (API shape,
+  /// snake_case keys). The map and nearby list render instantly from it
+  /// while the API refreshes in the background, and it is the data source
+  /// when the device is offline.
   List<Map<String, dynamic>>? _pharmaciesCache;
   DateTime? _pharmaciesCacheAt;
 
+  Uri _uri(String path, [Map<String, String>? query]) =>
+      Uri.parse('${ApiConfig.apiBase}$path').replace(queryParameters: query);
+
+  /// Fire an HTTP GET, retrying once on timeout / transient error.
+  Future<http.Response> _getWithRetry(Uri url) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final res = await http
+            .get(url, headers: const {'Accept': 'application/json'})
+            .timeout(_timeout);
+        return res;
+      } on TimeoutException {
+        if (attempt == 1) rethrow;
+      }
+    }
+    throw StateError('unreachable');
+  }
+
+  Future<Map<String, dynamic>> _getJson(String path,
+      [Map<String, String>? query]) async {
+    final res = await _getWithRetry(_uri(path, query));
+    if (res.statusCode == 404) {
+      throw _NotFound();
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw http.ClientException(
+          'API ${res.statusCode} for $path', res.request?.url);
+    }
+    final body = utf8.decode(res.bodyBytes);
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
   /// All active pharmacies, optionally distance-sorted from [near].
   ///
-  /// Serves from the cache when fresh; otherwise fetches Firestore and
+  /// Serves from the cache when fresh; otherwise fetches `/pharmacies` and
   /// updates the cache. If the network fails, falls back to the persisted
   /// cache so the map still shows markers offline.
   Future<List<Pharmacy>> fetchPharmacies({LatLng? near}) async {
@@ -75,13 +99,10 @@ class PharmacyService {
     }
 
     try {
-      final snap = await _pharmacies.get();
+      final data = await _getJson('/pharmacies');
       final docs = [
-        for (final doc in snap.docs)
-          _sanitizePharmacyDoc(
-            doc.id,
-            doc.data() as Map<String, dynamic>? ?? {},
-          ),
+        for (final raw in (data['pharmacies'] as List? ?? []))
+          if (raw is Map<String, dynamic>) Map<String, dynamic>.from(raw),
       ];
       _pharmaciesCache = docs;
       _pharmaciesCacheAt = DateTime.now();
@@ -89,7 +110,7 @@ class PharmacyService {
       return _materializePharmacies(docs, near);
     } catch (_) {
       final persisted = await _loadPersistedPharmacies();
-      if (persisted != null) {
+      if (persisted != null && persisted.isNotEmpty) {
         _pharmaciesCache = persisted;
         _pharmaciesCacheAt = DateTime.now();
         return _materializePharmacies(persisted, near);
@@ -106,8 +127,7 @@ class PharmacyService {
     for (final data in docs) {
       final lat = (data['latitude'] as num?)?.toDouble() ?? 0;
       final lng = (data['longitude'] as num?)?.toDouble() ?? 0;
-      final p = Pharmacy.fromMap(
-        data['id']?.toString() ?? '',
+      final p = Pharmacy.fromJson(
         data,
         distanceKm: near == null
             ? -1
@@ -119,33 +139,6 @@ class PharmacyService {
       pharmacies.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
     }
     return pharmacies;
-  }
-
-  /// Keeps only the fields the model reads, so the cache is JSON-encodable
-  /// regardless of what else documents contain.
-  Map<String, dynamic> _sanitizePharmacyDoc(
-    String id,
-    Map<String, dynamic> data,
-  ) {
-    final sanitized = <String, dynamic>{'id': id};
-    for (final key in _pharmaciesCacheFields) {
-      if (key == 'id' || !data.containsKey(key)) continue;
-      final value = data[key];
-      if (value == null) continue;
-      if (value is Map<String, dynamic>) {
-        sanitized[key] = {
-          for (final e in value.entries)
-            if (e.value == null ||
-                e.value is String ||
-                e.value is bool ||
-                e.value is num)
-              e.key: e.value,
-        };
-      } else if (value is String || value is bool || value is num) {
-        sanitized[key] = value;
-      }
-    }
-    return sanitized;
   }
 
   Future<void> _persistPharmaciesCache(List<Map<String, dynamic>> docs) async {
@@ -166,7 +159,7 @@ class PharmacyService {
       if (decoded is! List) return null;
       return [
         for (final entry in decoded)
-          if (entry is Map<String, dynamic>) entry,
+          if (entry is Map<String, dynamic>) Map<String, dynamic>.from(entry),
       ];
     } catch (_) {
       return null;
@@ -174,30 +167,35 @@ class PharmacyService {
   }
 
   Future<Pharmacy?> fetchPharmacy(String id, {LatLng? near}) async {
-    final doc = await _pharmacies.doc(id).get();
-    if (!doc.exists) return null;
-    final data = doc.data() as Map<String, dynamic>? ?? {};
-    final lat = (data['latitude'] as num?)?.toDouble() ?? 0;
-    final lng = (data['longitude'] as num?)?.toDouble() ?? 0;
-    final p = Pharmacy.fromDocument(
-      doc,
-      distanceKm: near == null ? -1 : distanceKmBetween(near, LatLng(lat, lng)),
-    );
-    return p.isActive ? p : null;
+    try {
+      final data = await _getJson('/pharmacies/$id');
+      final raw = data['pharmacy'];
+      if (raw is! Map<String, dynamic>) return null;
+      final lat = (raw['latitude'] as num?)?.toDouble() ?? 0;
+      final lng = (raw['longitude'] as num?)?.toDouble() ?? 0;
+      final p = Pharmacy.fromJson(
+        raw,
+        distanceKm: near == null ? -1 : distanceKmBetween(near, LatLng(lat, lng)),
+      );
+      return p.isActive ? p : null;
+    } on _NotFound {
+      return null;
+    }
   }
 
-  /// All drugs in a single pharmacy's inventory.
+  /// All drugs in a single pharmacy's inventory (`/pharmacies/<id>/products`).
   Future<List<Drug>> fetchDrugs(String pharmacyId) async {
-    final snap = await _pharmacies.doc(pharmacyId).collection('drugs').get();
-    return snap.docs
-        .map((d) => Drug.fromDocument(d, pharmacyId: pharmacyId))
-        .toList();
+    final data = await _getJson('/pharmacies/$pharmacyId/products');
+    return [
+      for (final raw in (data['products'] as List? ?? []))
+        if (raw is Map<String, dynamic>) Drug.fromJson(raw),
+    ];
   }
 
   /// Search every pharmacy's inventory for [query].
   ///
-  /// Uses a case-insensitive, partial (substring) match so "paracetamol",
-  /// "PARACETAMOL 500MG" and "amox" all work on the demo dataset.
+  /// The API matches case-insensitively and partially server-side, so
+  /// "paracetamol", "PARACETAMOL 500MG" and "amox" all work.
   Future<List<PharmacySearchResult>> searchDrugs(
     String query, {
     LatLng? near,
@@ -205,36 +203,19 @@ class PharmacyService {
     final term = query.trim().toLowerCase();
     if (term.isEmpty) return [];
 
-    final drugsSnap = await _db.collectionGroup('drugs').get();
-    final pharmacies = <String, Pharmacy>{};
-    final matches = <Drug>[];
+    final data = await _getJson('/products/search', {'q': term});
+    final drugs = <Drug>[
+      for (final raw in (data['products'] as List? ?? []))
+        if (raw is Map<String, dynamic>) Drug.fromJson(raw),
+    ];
+    if (drugs.isEmpty) return [];
 
-    for (final doc in drugsSnap.docs) {
-      final drug = Drug.fromDocument(
-        doc,
-        pharmacyId: doc.reference.parent.parent!.id,
-      );
-      if (drug.name.toLowerCase().contains(term)) {
-        matches.add(drug);
-      }
-    }
-
-    if (matches.isEmpty) return [];
-
-    final pharmSnap = await _pharmacies.where('name', isNotEqualTo: '').get();
-    for (final doc in pharmSnap.docs) {
-      final p = Pharmacy.fromDocument(
-        doc,
-        distanceKm: near == null
-            ? -1
-            : distanceKmBetween(near, _docLatLng(doc)),
-      );
-      if (p.isActive) pharmacies[doc.id] = p;
-    }
+    final pharmacies = await _fetchActiveById(near: near);
+    if (pharmacies.isEmpty) return [];
 
     final results = <PharmacySearchResult>[];
     final byPharmacy = <String, PharmacySearchResult>{};
-    for (final drug in matches) {
+    for (final drug in drugs) {
       final pharmacy = pharmacies[drug.pharmacyId];
       if (pharmacy == null) continue;
       final result = byPharmacy.putIfAbsent(
@@ -253,47 +234,22 @@ class PharmacyService {
     return results;
   }
 
+  /// Map of active pharmacy id -> Pharmacy, reused by search and detail.
+  Future<Map<String, Pharmacy>> _fetchActiveById({LatLng? near}) async {
+    final pharmacies = await fetchPharmacies(near: near);
+    return {for (final p in pharmacies) p.id: p};
+  }
+
   /// Every distinct drug aggregated across all pharmacies: cheapest price,
   /// stock count and how many pharmacies carry it. Sorted so in-stock
-  /// medicines with the widest availability lead.
-  ///
-  /// Only drugs owned by search-eligible pharmacies (existing, named, active)
-  /// are counted, mirroring [searchDrugs]. Orphaned drug subcollections left
-  /// behind by deleted pharmacies are ignored so the home list never shows an
-  /// "In Stock" medicine that resolves to zero pharmacies.
+  /// medicines with the widest availability lead. Backed by
+  /// `/products/popular`.
   Future<List<PopularDrug>> fetchPopularDrugs() async {
-    final pharmSnap = await _pharmacies.where('name', isNotEqualTo: '').get();
-    final activePharmacies = <String>{
-      for (final doc in pharmSnap.docs)
-        if (Pharmacy.fromDocument(doc).isActive) doc.id,
-    };
-
-    final snap = await _db.collectionGroup('drugs').get();
-    final byName = <String, _DrugAggregate>{};
-    for (final doc in snap.docs) {
-      final pharmacyId = doc.reference.parent.parent!.id;
-      if (!activePharmacies.contains(pharmacyId)) continue;
-      final drug = Drug.fromDocument(doc, pharmacyId: pharmacyId);
-      final agg = byName.putIfAbsent(
-        drug.name.toLowerCase(),
-        () => _DrugAggregate(name: drug.name, formLabel: drug.formLabel),
-      );
-      agg.pharmacyIds.add(pharmacyId);
-      if (drug.inStock) agg.inStockCount++;
-      if (drug.price < agg.cheapest) agg.cheapest = drug.price;
-    }
-
-    final drugs = byName.values
-        .map(
-          (a) => PopularDrug(
-            name: a.name,
-            formLabel: a.formLabel,
-            cheapestPrice: a.cheapest,
-            pharmacyCount: a.pharmacyIds.length,
-            anyInStock: a.inStockCount > 0,
-          ),
-        )
-        .toList();
+    final data = await _getJson('/products/popular');
+    final drugs = <PopularDrug>[
+      for (final raw in (data['products'] as List? ?? []))
+        if (raw is Map<String, dynamic>) PopularDrug.fromJson(raw),
+    ];
     drugs.sort((a, b) {
       if (a.anyInStock != b.anyInStock) return a.anyInStock ? -1 : 1;
       return b.pharmacyCount.compareTo(a.pharmacyCount);
@@ -305,24 +261,8 @@ class PharmacyService {
   static double distanceKmBetween(LatLng a, LatLng b) {
     return const Distance().as(LengthUnit.Kilometer, a, b);
   }
-
-  static LatLng _docLatLng(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
-    final lat = (data['latitude'] as num?)?.toDouble() ?? 0;
-    final lng = (data['longitude'] as num?)?.toDouble() ?? 0;
-    return LatLng(lat, lng);
-  }
 }
 
-class _DrugAggregate {
-  final String name;
-  final String formLabel;
-  double cheapest;
-  final Set<String> pharmacyIds;
-  int inStockCount;
-
-  _DrugAggregate({required this.name, required this.formLabel})
-    : cheapest = double.infinity,
-      pharmacyIds = <String>{},
-      inStockCount = 0;
+class _NotFound implements Exception {
+  const _NotFound();
 }

@@ -1,23 +1,26 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-/// A drug from a pharmacy's inventory
-/// (`pharmacies/{pharmacyId}/drugs/{drugId}`).
+/// A drug from a pharmacy's inventory, as returned by the PharmaTrack
+/// public API (`GET /api/v1/pharmacies/<id>/products` and
+/// `GET /api/v1/products/search?q=`).
 ///
-/// Mirrors the web app's drug schema: name, pricePerUnit, pricePerPacket,
-/// packetSize, unitLabel, quantity, category, expiryDate, imageUrl.
+/// The API always hides exact stock: it sends `in_stock` as a boolean, plus
+/// `price_per_unit`, `price_per_packet`, `packet_size`, `unit_label`,
+/// `category`, `image_url` and the owning pharmacy's id/name.
 class Drug {
   final String id;
 
-  /// Id of the owning `pharmacies/{pharmacyId}` document.
+  /// Id of the owning pharmacy.
   final String pharmacyId;
+  final String pharmacyName;
   final String name;
   final double pricePerUnit;
   final double? pricePerPacket;
   final int? packetSize;
   final String unitLabel;
+
+  /// 1 when the pharmacy reports stock for this product, 0 otherwise.
+  /// Exact quantities are never exposed publicly.
   final int quantity;
   final String category;
-  final DateTime? expiryDate;
   final String? imageUrl;
 
   bool get inStock => quantity > 0;
@@ -28,6 +31,7 @@ class Drug {
   Drug({
     required this.id,
     required this.pharmacyId,
+    this.pharmacyName = '',
     required this.name,
     this.pricePerUnit = 0,
     this.pricePerPacket,
@@ -35,41 +39,32 @@ class Drug {
     this.unitLabel = 'unit',
     this.quantity = 0,
     this.category = '',
-    this.expiryDate,
     this.imageUrl,
   });
 
-  factory Drug.fromDocument(
-    DocumentSnapshot doc, {
-    required String pharmacyId,
-  }) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
-    DateTime? exp;
-    if (data['expiryDate'] != null) {
-      final raw = data['expiryDate'];
-      exp = raw is Timestamp ? raw.toDate() : DateTime.tryParse(raw.toString());
-    }
-
+  factory Drug.fromJson(Map<String, dynamic> data) {
     return Drug(
-      id: doc.id,
-      pharmacyId: pharmacyId,
+      id: data['id']?.toString() ?? '',
+      pharmacyId: (data['pharmacy_id'] ?? '').toString(),
+      pharmacyName: (data['pharmacy_name'] ?? '').toString(),
       name: data['name']?.toString() ?? '',
       pricePerUnit:
-          (data['pricePerUnit'] ?? data['price'] ?? 0).toDouble(),
-      pricePerPacket: (data['pricePerPacket'] as num?)?.toDouble(),
-      packetSize: (data['packetSize'] as num?)?.toInt(),
-      unitLabel: data['unitLabel']?.toString() ?? 'unit',
-      quantity: (data['quantity'] ?? 0).toInt(),
+          (data['price_per_unit'] ?? data['pricePerUnit'] ?? 0).toDouble(),
+      pricePerPacket:
+          (data['price_per_packet'] ?? data['pricePerPacket'] as num?)
+              ?.toDouble(),
+      packetSize: (data['packet_size'] ?? data['packetSize'] as num?)?.toInt(),
+      unitLabel: data['unit_label']?.toString() ?? 'unit',
+      quantity: data['in_stock'] == true ? 1 : (data['quantity'] ?? 0).toInt(),
       category: data['category']?.toString() ?? '',
-      expiryDate: exp,
-      imageUrl: data['imageUrl']?.toString(),
+      imageUrl: data['image_url']?.toString(),
     );
   }
 
   /// Secondary descriptor, e.g. "Tablet • Blister of 10".
   String get formLabel {
     final parts = <String>[];
-    if (category.isNotEmpty) parts.add(category);
+    if (category.isNotEmpty && category != '—') parts.add(category);
     if (packetSize != null && packetSize! > 0) {
       parts.add('Pack of $packetSize');
     } else if (unitLabel.isNotEmpty && unitLabel != 'unit') {
