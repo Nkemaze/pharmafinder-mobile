@@ -45,3 +45,7 @@ app.*.map.json
 /android/app/release
 *.json
 pharma-finder-6d99d-firebase-adminsdk-fbsvc-334ecc6079.json
+
+# Release signing (never commit)
+android/key.properties
+android/app/*.jks
