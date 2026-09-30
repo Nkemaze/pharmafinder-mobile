@@ -10,9 +10,9 @@ embed the paid Google Maps API or require a Google Maps API key.
 
 1. The map is rendered with Flutter's `flutter_map` package and map tiles from
    OpenStreetMap (`tile.openstreetmap.org`).
-2. Pharmacy markers come from Firebase Firestore's `pharmacies` collection.
-   Each pharmacy needs `latitude` and `longitude` fields. Only active
-   pharmacies are displayed.
+2. Pharmacy markers come from PharmaTrack's public
+   `GET /api/v1/pharmacies` endpoint. Each pharmacy needs `latitude` and
+   `longitude` fields. Only active pharmacies are displayed.
 3. The app asks for device location through `geolocator`. When permission is
    granted, the user's coordinates are shown as a blue marker and used to
    calculate distances to pharmacies.
@@ -54,4 +54,24 @@ embed the paid Google Maps API or require a Google Maps API key.
 
 In summary:
 
-`Firestore pharmacy coordinates + GPS/manual user location -> OpenStreetMap map -> OSRM route -> optional Google Maps handoff`
+`PharmaTrack API pharmacy coordinates + GPS/manual user location -> OpenStreetMap map -> OSRM route -> optional Google Maps handoff`
+
+## PharmaTrack API connection
+
+The customer app no longer reads runtime data from Firebase. Its data source
+is the public PharmaTrack REST API:
+
+- pharmacies: `/api/v1/pharmacies`
+- medicines in a pharmacy: `/api/v1/pharmacies/<id>/products`
+- medicine search: `/api/v1/products/search?q=<query>`
+- popular medicines: `/api/v1/products/popular`
+
+By default it uses the hosted API. To use a local or another deployment, pass
+the server origin when running or building (do not include `/api/v1`):
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000
+```
+
+`10.0.2.2` is the Android emulator's address for a server running on the
+development computer. Use your computer's LAN IP for a physical phone.

@@ -46,13 +46,17 @@ class Pharmacy {
       name: data['name']?.toString() ?? (data['id']?.toString() ?? ''),
       address: data['address']?.toString() ?? '',
       city: data['city']?.toString() ?? '',
-      phone: (data['emergency_phone'] ??
-              data['emergencyPhone'] ??
-              data['phone'] ??
-              '')
-          .toString(),
-      latitude: (data['latitude'] as num?)?.toDouble() ?? 0,
-      longitude: (data['longitude'] as num?)?.toDouble() ?? 0,
+      phone:
+          (data['emergency_phone'] ??
+                  data['emergencyPhone'] ??
+                  data['phone'] ??
+                  '')
+              .toString(),
+      // SQLite/API adapters may serialise coordinates as either JSON numbers
+      // or numeric strings. Accept both so valid pharmacy pins are not
+      // silently placed at 0,0.
+      latitude: _asDouble(data['latitude']),
+      longitude: _asDouble(data['longitude']),
       status: data['status']?.toString() ?? 'active',
       hours:
           (data['opening_hours'] as Map<String, dynamic>?) ??
@@ -151,6 +155,11 @@ class Pharmacy {
     final minute = int.tryParse(parts[1]);
     if (hour == null || minute == null) return null;
     return _ParsedTime(hour, minute);
+  }
+
+  static double _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   static String _format12(_ParsedTime t) {
