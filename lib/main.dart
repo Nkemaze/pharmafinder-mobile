@@ -9,16 +9,16 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await OfflineMapService.instance.initialize();
   ConnectivityService.instance.watch();
-  runApp(const PharmaFinderApp());
+  runApp(const PharmaTrackApp());
 }
 
-class PharmaFinderApp extends StatelessWidget {
-  const PharmaFinderApp({super.key});
+class PharmaTrackApp extends StatelessWidget {
+  const PharmaTrackApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PharmaFinder',
+      title: 'PharmaTrack',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: const SplashScreen(),

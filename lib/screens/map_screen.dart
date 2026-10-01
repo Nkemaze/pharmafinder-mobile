@@ -41,10 +41,9 @@ class _MapScreenState extends State<MapScreen> {
   String? _lastCenteredKey;
 
   /// Initial camera, resolved before the map first builds so it never jumps:
-  /// focused pharmacy -> last used position -> Buea (the app's home region).
-  static const _defaultCenter = LatLng(4.1527, 9.2410);
+  /// focused pharmacy -> last used position -> user's location -> first pharmacy.
   static const _defaultZoom = 14.0;
-  LatLng _initialCenter = _defaultCenter;
+  LatLng? _initialCenter;
   double _initialZoom = _defaultZoom;
   bool _cameraLoaded = false;
   bool _autoRecentreAllowed = true;
@@ -83,6 +82,16 @@ class _MapScreenState extends State<MapScreen> {
         // it on the first data load. Tapping the locate button or changing
         // the manual location still recentres.
         _autoRecentreAllowed = false;
+      } else {
+        final userLocation = AppState.instance.currentLocation.value?.position;
+        if (userLocation != null) {
+          _initialCenter = userLocation;
+        } else if (_pharmacies.isNotEmpty && _pharmacies.first.hasLocation) {
+          _initialCenter = LatLng(
+            _pharmacies.first.latitude,
+            _pharmacies.first.longitude,
+          );
+        }
       }
       _cameraLoaded = true;
     });
@@ -299,10 +308,15 @@ class _MapScreenState extends State<MapScreen> {
     if (!_cameraLoaded) {
       return const ColoredBox(color: AppColors.background);
     }
+    final initialCenter = _initialCenter ?? _focus;
+    if (!_cameraLoaded || initialCenter == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
-        initialCenter: _initialCenter,
+        initialCenter: initialCenter,
         initialZoom: _initialZoom,
         minZoom: 3,
         maxZoom: 19,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/drug.dart';
 import '../models/pharmacy.dart';
 import '../services/launcher_service.dart';
 import '../services/pharmacy_service.dart';
@@ -190,7 +191,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       return _message(
         icon: Icons.cloud_off,
         title: 'Something went wrong',
-        body: 'Could not reach PharmaFinder. Check your connection.',
+        body: 'Could not reach PharmaTrack. Check your connection.',
         action: OutlinedButton(
           onPressed: () => _runSearch(_query),
           child: const Text('Retry'),
@@ -222,6 +223,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       pharmacy: p,
       subtitle: subtitle,
       priceLabel: result.bestDrug.priceLabel,
+      medicineNotice: _medicineNotice(result.bestDrug),
       stockStatus:
           result.anyInStock ? StockStatus.inStock : StockStatus.outOfStock,
       enabled: p.isOpenNow,
@@ -233,6 +235,17 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       ),
       onCall: () => LauncherService.call(p.phone),
     );
+  }
+
+  String? _medicineNotice(Drug drug) {
+    if (drug.isControlled && drug.requiresPrescription) {
+      return 'Controlled medicine. Prescription required.';
+    }
+    if (drug.isControlled) {
+      return 'Controlled medicine. Confirm dispensing requirements with the pharmacy.';
+    }
+    if (drug.requiresPrescription) return 'Prescription required.';
+    return null;
   }
 
   void _openDetail(Pharmacy p) {

@@ -12,6 +12,7 @@ class PharmacyCard extends StatelessWidget {
   final Pharmacy pharmacy;
   final String? subtitle;
   final String? priceLabel;
+  final String? medicineNotice;
   final StockStatus stockStatus;
   final bool showSchedule;
   final bool enabled;
@@ -24,6 +25,7 @@ class PharmacyCard extends StatelessWidget {
     required this.pharmacy,
     this.subtitle,
     this.priceLabel,
+    this.medicineNotice,
     this.stockStatus = StockStatus.unknown,
     this.showSchedule = false,
     this.enabled = true,
@@ -153,6 +155,24 @@ class PharmacyCard extends StatelessWidget {
                         ),
                       ),
                       _stockBadge(),
+                    ],
+                  ),
+                ],
+                if (medicineNotice != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline,
+                          size: 16, color: AppColors.error),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          medicineNotice!,
+                          style: AppTextStyles.bodySm
+                              .copyWith(color: AppColors.error),
+                        ),
+                      ),
                     ],
                   ),
                 ],

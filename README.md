@@ -1,4 +1,4 @@
-# PharmaFinder Customer Mobile App
+# PharmaTrack Customer Mobile App
 
 Flutter customer app for finding medicines, comparing pharmacy availability
 and prices, locating pharmacies, and getting directions.

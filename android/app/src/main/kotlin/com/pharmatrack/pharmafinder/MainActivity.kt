@@ -1,4 +1,4 @@
-package com.example.customer_mobile_app
+package com.pharmatrack.pharmafinder
 
 import io.flutter.embedding.android.FlutterActivity
 

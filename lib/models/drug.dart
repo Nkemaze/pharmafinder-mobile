@@ -21,6 +21,8 @@ class Drug {
   /// Exact quantities are never exposed publicly.
   final int quantity;
   final String category;
+  final bool isControlled;
+  final bool requiresPrescription;
   final String? imageUrl;
 
   bool get inStock => quantity > 0;
@@ -39,6 +41,8 @@ class Drug {
     this.unitLabel = 'unit',
     this.quantity = 0,
     this.category = '',
+    this.isControlled = false,
+    this.requiresPrescription = false,
     this.imageUrl,
   });
 
@@ -57,6 +61,8 @@ class Drug {
       unitLabel: data['unit_label']?.toString() ?? 'unit',
       quantity: data['in_stock'] == true ? 1 : (data['quantity'] ?? 0).toInt(),
       category: data['category']?.toString() ?? '',
+      isControlled: data['is_controlled'] == true,
+      requiresPrescription: data['requires_prescription'] == true,
       imageUrl: data['image_url']?.toString(),
     );
   }

@@ -8,6 +8,8 @@ class PopularDrug {
   final double cheapestPrice;
   final int pharmacyCount;
   final bool anyInStock;
+  final bool isControlled;
+  final bool requiresPrescription;
 
   const PopularDrug({
     required this.name,
@@ -15,6 +17,8 @@ class PopularDrug {
     required this.cheapestPrice,
     required this.pharmacyCount,
     required this.anyInStock,
+    this.isControlled = false,
+    this.requiresPrescription = false,
   });
 
   /// Builds from the public API's aggregated response
@@ -26,6 +30,8 @@ class PopularDrug {
       cheapestPrice: (data['cheapest_price'] as num?)?.toDouble() ?? 0,
       pharmacyCount: (data['pharmacy_count'] as num?)?.toInt() ?? 0,
       anyInStock: data['any_in_stock'] == true,
+      isControlled: data['is_controlled'] == true,
+      requiresPrescription: data['requires_prescription'] == true,
     );
   }
 

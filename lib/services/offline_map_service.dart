@@ -157,7 +157,7 @@ class OfflineMapService {
   static const Duration _requestPause = Duration(milliseconds: 120);
   static const String _regionsPrefKey = 'offline_map_regions';
   static const Map<String, String> _tileHeaders = {
-    'User-Agent': 'PharmaFinderMobile/1.0 (capstone demo)',
+    'User-Agent': 'PharmaTrackMobile/1.0',
   };
 
   Directory? _root;

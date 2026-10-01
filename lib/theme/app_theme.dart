@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens from the PharmaFinder mobile design system.
+/// Design tokens from the PharmaTrack mobile design system.
 ///
-/// Source: Stitch project "PharmaFinder Mobile App UI/UX" design system.
+/// Source: Stitch project "PharmaTrack Mobile App UI/UX" design system.
 /// Palette is "Deep Medical Green" on a light mint surface, Inter typeface.
 class AppColors {
   AppColors._();

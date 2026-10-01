@@ -64,7 +64,7 @@ class RoutingService {
   static final RoutingService instance = RoutingService._();
 
   static const String _osrmEndpoint = 'https://router.project-osrm.org';
-  static const String _userAgent = 'PharmaFinderMobile/1.0 (capstone demo)';
+  static const String _userAgent = 'PharmaTrackMobile/1.0';
 
   Future<RouteResult> getRoute({
     required LatLng origin,

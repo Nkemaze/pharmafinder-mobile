@@ -18,6 +18,8 @@ class PharmacySearchResult {
   PharmacySearchResult({required this.pharmacy, required this.drugs});
 
   bool get anyInStock => drugs.any((d) => d.inStock);
+  bool get isControlled => drugs.any((d) => d.isControlled);
+  bool get requiresPrescription => drugs.any((d) => d.requiresPrescription);
 
   Drug get bestDrug {
     final inStock = drugs.where((d) => d.inStock).toList();
@@ -91,8 +93,9 @@ class PharmacyService {
   /// Serves from the cache when fresh; otherwise fetches `/pharmacies` and
   /// updates the cache. If the network fails, falls back to the persisted
   /// cache so the map still shows markers offline.
-  Future<List<Pharmacy>> fetchPharmacies({LatLng? near}) async {
-    if (_pharmaciesCache != null &&
+  Future<List<Pharmacy>> fetchPharmacies({LatLng? near, bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _pharmaciesCache != null &&
         _pharmaciesCacheAt != null &&
         DateTime.now().difference(_pharmaciesCacheAt!) < _pharmaciesCacheTtl) {
       return _materializePharmacies(_pharmaciesCache!, near);
@@ -125,11 +128,13 @@ class PharmacyService {
   ) {
     final pharmacies = <Pharmacy>[];
     for (final data in docs) {
-      final lat = (data['latitude'] as num?)?.toDouble() ?? 0;
-      final lng = (data['longitude'] as num?)?.toDouble() ?? 0;
+      // API adapters may return coordinates as JSON numbers or numeric
+      // strings. Keep distance sorting from failing on the string form.
+      final lat = _asDouble(data['latitude']);
+      final lng = _asDouble(data['longitude']);
       final p = Pharmacy.fromJson(
         data,
-        distanceKm: near == null
+        distanceKm: near == null || (lat == 0 && lng == 0)
             ? -1
             : distanceKmBetween(near, LatLng(lat, lng)),
       );
@@ -139,6 +144,11 @@ class PharmacyService {
       pharmacies.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
     }
     return pharmacies;
+  }
+
+  static double _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   Future<void> _persistPharmaciesCache(List<Map<String, dynamic>> docs) async {
@@ -171,11 +181,13 @@ class PharmacyService {
       final data = await _getJson('/pharmacies/$id');
       final raw = data['pharmacy'];
       if (raw is! Map<String, dynamic>) return null;
-      final lat = (raw['latitude'] as num?)?.toDouble() ?? 0;
-      final lng = (raw['longitude'] as num?)?.toDouble() ?? 0;
+      final lat = _asDouble(raw['latitude']);
+      final lng = _asDouble(raw['longitude']);
       final p = Pharmacy.fromJson(
         raw,
-        distanceKm: near == null ? -1 : distanceKmBetween(near, LatLng(lat, lng)),
+        distanceKm: near == null || (lat == 0 && lng == 0)
+            ? -1
+            : distanceKmBetween(near, LatLng(lat, lng)),
       );
       return p.isActive ? p : null;
     } on _NotFound {

@@ -40,21 +40,35 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
   }
 
   Future<void> _load() async {
-    _saved = await PrefsService.instance.isPharmacySaved(_pharmacy.id);
-    if (!mounted) return;
-
-    // Refresh distances using the current user location when available.
-    final location = AppState.instance.currentLocation.value;
-    if (_pharmacy.distanceKm < 0 && location != null) {
-      final fresh =
-          await PharmacyService.instance.fetchPharmacy(_pharmacy.id);
-      if (fresh != null) _pharmacy = fresh;
-    }
-
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
     try {
-      final drugs =
-          await PharmacyService.instance.fetchDrugs(_pharmacy.id);
+      final saved = await PrefsService.instance.isPharmacySaved(_pharmacy.id);
+      if (!mounted) return;
+      setState(() {
+        _saved = saved;
+      });
+
+      // Distance refresh is optional; it must not prevent the inventory
+      // request from running if the pharmacy profile cannot be refreshed.
+      final location = AppState.instance.currentLocation.value;
+      if (_pharmacy.distanceKm < 0 && location != null) {
+        try {
+          final fresh = await PharmacyService.instance.fetchPharmacy(
+            _pharmacy.id,
+            near: location.position,
+          );
+          if (fresh != null && mounted) {
+            setState(() => _pharmacy = fresh);
+          }
+        } catch (_) {
+          // Continue loading medicines with the pharmacy data we already have.
+        }
+      }
+
+      final drugs = await PharmacyService.instance.fetchDrugs(_pharmacy.id);
       if (!mounted) return;
       setState(() {
         _drugs = drugs;
@@ -420,6 +434,8 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
     final priceLabel = drug.priceLabel ?? '';
     final inStock = drug.inStock ?? false;
     final formLabel = drug.formLabel ?? '';
+    final isControlled = drug.isControlled ?? false;
+    final requiresPrescription = drug.requiresPrescription ?? false;
 
     return Opacity(
       opacity: inStock ? 1 : 0.65,
@@ -477,6 +493,20 @@ class _PharmacyDetailScreenState extends State<PharmacyDetailScreen> {
                       formLabel,
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppColors.onSurfaceVariant),
+                    ),
+                  ],
+                  if (isControlled || requiresPrescription) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      isControlled
+                          ? requiresPrescription
+                              ? 'Controlled medicine • Prescription required'
+                              : 'Controlled medicine • Ask pharmacy about requirements'
+                          : 'Prescription required',
+                      style: AppTextStyles.bodySm.copyWith(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ],

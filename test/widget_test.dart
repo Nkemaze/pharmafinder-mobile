@@ -8,9 +8,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: const Scaffold(body: Text('PharmaFinder')),
+        home: const Scaffold(body: Text('PharmaTrack')),
       ),
     );
-    expect(find.text('PharmaFinder'), findsOneWidget);
+    expect(find.text('PharmaTrack'), findsOneWidget);
   });
 }

@@ -91,17 +91,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Email support',
                 subtitle: 'support@pharmafinder.com',
                 onTap: () =>
-                    LauncherService.email(subject: 'PharmaFinder support'),
+                    LauncherService.email(subject: 'PharmaTrack support'),
               ),
               const SizedBox(height: 24),
               _sectionTitle('About'),
               _actionTile(
                 icon: Icons.info_outline,
-                title: 'About PharmaFinder',
+                title: 'About PharmaTrack',
                 subtitle: 'Version 1.0.0',
                 onTap: () => showAboutDialog(
                   context: context,
-                  applicationName: 'PharmaFinder',
+                  applicationName: 'PharmaTrack',
                   applicationVersion: '1.0.0',
                   applicationIcon: const Icon(
                     Icons.local_pharmacy,

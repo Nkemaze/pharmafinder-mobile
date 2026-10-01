@@ -24,7 +24,7 @@ class LocationService {
 
   static const String _nominatimEndpoint =
       'https://nominatim.openstreetmap.org';
-  static const String _userAgent = 'PharmaFinderMobile/1.0 (capstone demo)';
+  static const String _userAgent = 'PharmaTrackMobile/1.0';
 
   /// Checks the current location permission.
   Future<bool> hasPermission() async {

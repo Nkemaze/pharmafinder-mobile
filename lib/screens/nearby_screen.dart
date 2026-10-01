@@ -21,6 +21,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
   List<Pharmacy> _pharmacies = [];
   bool _loading = true;
   bool _error = false;
+  String? _errorMessage;
   String _filter = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -43,6 +44,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
     setState(() {
       _loading = true;
       _error = false;
+      _errorMessage = null;
     });
     try {
       final location = AppState.instance.currentLocation.value;
@@ -53,11 +55,36 @@ class _NearbyScreenState extends State<NearbyScreen> {
         _pharmacies = pharmacies;
         _loading = false;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = true;
+        _errorMessage = error.toString();
         _loading = false;
+      });
+    }
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final location = AppState.instance.currentLocation.value;
+      final pharmacies = await PharmacyService.instance.fetchPharmacies(
+        near: location?.position,
+        forceRefresh: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _pharmacies = pharmacies;
+        _error = false;
+        _errorMessage = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        // Keep the current list visible when a refresh fails. Show the full
+        // screen error only when there is no data to display.
+        _error = _pharmacies.isEmpty;
+        _errorMessage = error.toString();
       });
     }
   }
@@ -128,7 +155,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
                 size: 40, color: AppColors.onSurfaceVariant),
             const SizedBox(height: 12),
             Text(
-              'Could not load pharmacies.',
+              'Could not load pharmacies. ${_errorMessage ?? ''}',
               style: AppTextStyles.bodySm
                   .copyWith(color: AppColors.onSurfaceVariant),
             ),
@@ -139,44 +166,55 @@ class _NearbyScreenState extends State<NearbyScreen> {
       );
     }
     final visible = _visible;
-    if (visible.isEmpty) {
-      return Center(
-        child: Text(
-          _filter.isEmpty
-              ? 'No pharmacies found.'
-              : 'No results for "$_filter".',
-          style: AppTextStyles.bodySm
-              .copyWith(color: AppColors.onSurfaceVariant),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      itemCount: visible.length,
-      itemBuilder: (context, i) {
-        final p = visible[i];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: PharmacyCard(
-            pharmacy: p,
-            subtitle: p.distanceKm >= 0
-                ? '${p.formattedDistance} • ${p.address.isNotEmpty ? p.address : p.city}'
-                : (p.address.isNotEmpty ? p.address : p.city),
-            showSchedule: true,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => PharmacyDetailScreen(pharmacy: p),
-              ),
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: visible.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: 240,
+                  child: Center(
+                    child: Text(
+                      _filter.isEmpty
+                          ? 'No pharmacies found.'
+                          : 'No results for "$_filter".',
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppColors.onSurfaceVariant),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              itemCount: visible.length,
+              itemBuilder: (context, i) {
+                final p = visible[i];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: PharmacyCard(
+                    pharmacy: p,
+                    subtitle: p.distanceKm >= 0
+                        ? '${p.formattedDistance} • ${p.address.isNotEmpty ? p.address : p.city}'
+                        : (p.address.isNotEmpty ? p.address : p.city),
+                    showSchedule: true,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PharmacyDetailScreen(pharmacy: p),
+                      ),
+                    ),
+                    onCall: () => LauncherService.call(p.phone),
+                    onDirections: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DirectionsScreen(pharmacy: p),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-            onCall: () => LauncherService.call(p.phone),
-            onDirections: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => DirectionsScreen(pharmacy: p),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

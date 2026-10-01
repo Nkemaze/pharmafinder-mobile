@@ -23,8 +23,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const _popularNow = ['Coartem', 'Ibuprofen', 'Vitamin C'];
-
   List<String> _recentSearches = [];
   List<PopularDrug>? _popularDrugs;
   bool _locationResolving = true;
@@ -231,22 +229,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          _chipHeader('Popular Now'),
-          SizedBox(
-            height: 40,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(right: 16),
-              itemCount: _popularNow.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, i) => _chip(
-                label: _popularNow[i],
-                icon: Icons.trending_up,
-                highlight: true,
-                onTap: () => _submitSearch(_popularNow[i]),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -409,6 +391,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: AppColors.onSurfaceVariant),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
+                        if (d.isControlled || d.requiresPrescription) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            d.isControlled
+                                ? d.requiresPrescription
+                                    ? 'Controlled medicine • Prescription required'
+                                    : 'Controlled medicine • Ask pharmacy about requirements'
+                                : 'Prescription required',
+                            style: AppTextStyles.bodySm.copyWith(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -525,7 +521,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       .copyWith(color: AppColors.onSurface)),
               const SizedBox(height: 8),
               Text(
-                'Allow PharmaFinder to find pharmacies closest to you for '
+                'Allow PharmaTrack to find pharmacies closest to you for '
                 'faster care and better recommendations. You can still search '
                 'for medicines above.',
                 textAlign: TextAlign.center,
